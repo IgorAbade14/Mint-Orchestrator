@@ -1,0 +1,26 @@
+# Python (O essencial para não sujar o repo)
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+
+# IDEs (Configurações do seu VS Code)
+.vscode/
+.idea/
+
+# Docker (Caso você gere algum log local ou use buildx)
+.docker/
+*.log
+
+# Kubernetes (Secrets e arquivos temporários)
+# Nunca suba arquivos que contenham senhas reais!
+*.pem
+*.key
+.kube/
+
+# Sistema Operacional (Coisas do Linux Mint/Ubuntu)
+.DS_Store
+.directory

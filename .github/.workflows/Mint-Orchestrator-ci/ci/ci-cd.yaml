@@ -1,0 +1,86 @@
+name: "Mint Orchestrator CI/CD Pipeline"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+  workflow_dispatch: {}
+
+env:
+  IMAGE_NAME: mint-orchestrator
+  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_REGISTRY: ${{ secrets.REGISTRY }}
+  # Define o nome completo da imagem baseado na existência de um registry
+  IMAGE_FULL_NAME: ${{ secrets.REGISTRY && format('{0}/{1}:{2}', secrets.REGISTRY, env.IMAGE_NAME, env.IMAGE_TAG) || format('{0}:{1}', env.IMAGE_NAME, env.IMAGE_TAG) }}
+
+jobs:
+  validate:
+    name: Validação e Linting
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Instalar dependências
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r app/requirements.txt
+
+      - name: Checar sintaxe e importar Flask
+        run: |
+          python -m compileall app
+          python -c "from app.main import app; print('Flask OK')"
+
+      - name: Validar manifestos Kubernetes (Dry-run)
+        run: |
+          kubectl apply --dry-run=client -f k8s/deployment.yaml
+          kubectl apply --dry-run=client -f k8s/service.yaml
+
+  docker-build-secure:
+    name: Build, Scan e Push
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Opcional login no registry
+        if: ${{ secrets.REGISTRY && secrets.REGISTRY_USERNAME && secrets.REGISTRY_PASSWORD }}
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.REGISTRY }}
+          username: ${{ secrets.REGISTRY_USERNAME }}
+          password: ${{ secrets.REGISTRY_PASSWORD }}
+
+      - name: Build da imagem Docker com Cache
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile
+          push: false # Primeiro fazemos o build local para o scan
+          load: true   # Carrega a imagem no daemon do Docker local para o Trivy
+          tags: ${{ env.IMAGE_FULL_NAME }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Scan de Vulnerabilidades (Trivy)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.IMAGE_FULL_NAME }}
+          format: 'table'
+          exit-code: '1' # Falha o build se houver algo crítico
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push da Imagem (Apenas se houver Registry e Scan passar)
+        if: ${{ secrets.REGISTRY && secrets.REGISTRY_USERNAME && secrets.REGISTRY_PASSWORD }}
+        run: |
+          docker push ${{ env.IMAGE_FULL_NAME }}

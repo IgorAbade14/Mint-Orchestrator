@@ -1,0 +1,39 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mint-orchestrator-deployment
+spec:  # Configuração do Deployment (gerencia as réplicas e atualiza os pods)
+  replicas: 5  # Número de pods que devem estar rodando
+  selector:  # Define quais pods este Deployment vai gerenciar
+    matchLabels:
+      app: mint-orchestrator
+  template:
+    metadata:
+      labels:
+        app: mint-orchestrator
+    spec:
+      containers:  # Define os containers que rodarão no pod
+      - name: mint-orchestrator-container
+        image: mint-orchestrator:1441
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 5000
+        resources:
+          requests:  # Mínimo de recursos garantidos ao pod
+            memory: "256Mi"
+            cpu: "250m"
+          limits:  # Máximo de recursos que o pod pode usar
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:  # Reinicia se o pod morrer
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        readinessProbe:  # Verifica se pod está pronto para receber tráfego
+          httpGet:
+            path: /
+            port: 5000
+          initialDelaySeconds: 2
+          periodSeconds: 5
