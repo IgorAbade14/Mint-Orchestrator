@@ -144,10 +144,12 @@ Com isso:
 
 ---
 
-# 📫 Contato
+#  👨‍💻 Desenvolvido por:
 
-**Igor**  
-Aspiring DevOps Engineer
+- https://github.com/IgorAbade14
+- https://www.linkedin.com/in/igorabade14/
+
+
 
 ---
 
