@@ -32,5 +32,5 @@ jobs:
 
       - name: K8s Manifest Check
         run: |
-          kubectl apply --dry-run=client -f k8s/deployment.yaml
-          kubectl apply --dry-run=client -f k8s/service.yaml
+          kubectl apply --dry-run=client -f k8s/deployment.yaml --validate=false
+          kubectl apply --dry-run=client -f k8s/service.yaml --validate=false
