@@ -4,6 +4,7 @@
 ![Docker](https://img.shields.io/badge/Docker-Containers-2496ED?logo=docker&logoColor=white)
 ![Bash](https://img.shields.io/badge/Bash-Automation-4EAA25?logo=gnubash&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-Flask-3776AB?logo=python&logoColor=white)
+[![Mint Orchestrator CI/CD](https://github.com/IgorAbade14/Mint-Orchestrator/actions/workflows/main.yml/badge.svg)](https://github.com/IgorAbade14/Mint-Orchestrator/actions/workflows/main.yml)
 
 O **Mint-Orchestrator** é um projeto focado na automação completa do ciclo de vida de uma aplicação containerizada em um ambiente local de Kubernetes utilizando **Minikube**.
 
