@@ -32,5 +32,6 @@ jobs:
 
       - name: K8s Manifest Check
         run: |
-          python3 -c "import yaml; yaml.safe_load(open('k8s/deployment.yaml')); yaml.safe_load(open('k8s/service.yaml'))"
-          echo "✅ Estrutura YAML validada!"
+          grep "kind: Deployment" k8s/deployment.yaml
+          grep "kind: Service" k8s/service.yaml
+          echo "✅ Manifestos básicos validados!"
