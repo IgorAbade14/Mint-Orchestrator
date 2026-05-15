@@ -14,7 +14,7 @@ spec:  # Configuração do Deployment (gerencia as réplicas e atualiza os pods)
     spec:
       containers:  # Define os containers que rodarão no pod
       - name: mint-orchestrator-container
-        image: mint-orchestrator:1441
+        image: mint-orchestrator:2156
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 5000

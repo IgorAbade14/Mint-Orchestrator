@@ -5,13 +5,13 @@ on:
     branches: ["main"]
   pull_request:
     branches: ["main"]
-  workflow_dispatch: {}
+  workflow_dispatch: {} # Permite rodar manualmente pelo painel do GitHub
 
 env:
   IMAGE_NAME: mint-orchestrator
   IMAGE_TAG: ${{ github.sha }}
+  # Se você não tiver um Registry (Docker Hub) agora, o pipeline ainda valida o build
   IMAGE_REGISTRY: ${{ secrets.REGISTRY }}
-  # Define o nome completo da imagem baseado na existência de um registry
   IMAGE_FULL_NAME: ${{ secrets.REGISTRY && format('{0}/{1}:{2}', secrets.REGISTRY, env.IMAGE_NAME, env.IMAGE_TAG) || format('{0}:{1}', env.IMAGE_NAME, env.IMAGE_TAG) }}
 
 jobs:
@@ -30,11 +30,13 @@ jobs:
       - name: Instalar dependências
         run: |
           python -m pip install --upgrade pip
+          # Aqui ele vai ler o seu requirements.txt limpo (Flask e Gunicorn)
           python -m pip install -r app/requirements.txt
 
       - name: Checar sintaxe e importar Flask
         run: |
           python -m compileall app
+          # Valida se o app Flask inicia sem erros de importação
           python -c "from app.main import app; print('Flask OK')"
 
       - name: Validar manifestos Kubernetes (Dry-run)
@@ -43,7 +45,7 @@ jobs:
           kubectl apply --dry-run=client -f k8s/service.yaml
 
   docker-build-secure:
-    name: Build, Scan e Push
+    name: Build e Scan de Segurança
     runs-on: ubuntu-latest
     needs: validate
     steps:
@@ -66,8 +68,8 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          push: false # Primeiro fazemos o build local para o scan
-          load: true   # Carrega a imagem no daemon do Docker local para o Trivy
+          push: false # Não faz push ainda, precisamos escanear
+          load: true   # Exporta para o Docker local para o scan do Trivy
           tags: ${{ env.IMAGE_FULL_NAME }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -77,10 +79,10 @@ jobs:
         with:
           image-ref: ${{ env.IMAGE_FULL_NAME }}
           format: 'table'
-          exit-code: '1' # Falha o build se houver algo crítico
+          exit-code: '1' # Falha o pipeline se encontrar algo CRÍTICO
           severity: 'CRITICAL,HIGH'
 
-      - name: Push da Imagem (Apenas se houver Registry e Scan passar)
+      - name: Push da Imagem
         if: ${{ secrets.REGISTRY && secrets.REGISTRY_USERNAME && secrets.REGISTRY_PASSWORD }}
         run: |
           docker push ${{ env.IMAGE_FULL_NAME }}
