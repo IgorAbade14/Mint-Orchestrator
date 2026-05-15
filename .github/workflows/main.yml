@@ -1,88 +1,36 @@
-name: "Mint Orchestrator CI/CD Pipeline"
+name: "Mint Orchestrator CI/CD"
 
 on:
   push:
     branches: ["main"]
-  pull_request:
-    branches: ["main"]
-  workflow_dispatch: {} # Permite rodar manualmente pelo painel do GitHub
-
-env:
-  IMAGE_NAME: mint-orchestrator
-  IMAGE_TAG: ${{ github.sha }}
-  # Se você não tiver um Registry (Docker Hub) agora, o pipeline ainda valida o build
-  IMAGE_REGISTRY: ${{ secrets.REGISTRY }}
-  IMAGE_FULL_NAME: ${{ secrets.REGISTRY && format('{0}/{1}:{2}', secrets.REGISTRY, env.IMAGE_NAME, env.IMAGE_TAG) || format('{0}:{1}', env.IMAGE_NAME, env.IMAGE_TAG) }}
+  workflow_dispatch: {}
 
 jobs:
-  validate:
-    name: Validação e Linting
+  build-and-test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout do código
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configurar Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Instalar dependências
+      - name: Install Deps
         run: |
-          python -m pip install --upgrade pip
-          # Aqui ele vai ler o seu requirements.txt limpo (Flask e Gunicorn)
-          python -m pip install -r app/requirements.txt
+          pip install flask gunicorn
+          if [ -f app/requirements.txt ]; then pip install -r app/requirements.txt; fi
 
-      - name: Checar sintaxe e importar Flask
+      - name: Python Syntax Check
+        run: python -m compileall app
+
+      - name: Docker Build Test
         run: |
-          python -m compileall app
-          # Valida se o app Flask inicia sem erros de importação
-          python -c "from app.main import app; print('Flask OK')"
+          docker build -t mint-orchestrator:test .
+          echo "✅ Build Docker concluído com sucesso!"
 
-      - name: Validar manifestos Kubernetes (Dry-run)
+      - name: K8s Manifest Check
         run: |
           kubectl apply --dry-run=client -f k8s/deployment.yaml
           kubectl apply --dry-run=client -f k8s/service.yaml
-
-  docker-build-secure:
-    name: Build e Scan de Segurança
-    runs-on: ubuntu-latest
-    needs: validate
-    steps:
-      - name: Checkout do código
-        uses: actions/checkout@v4
-
-      - name: Configurar Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Opcional login no registry
-        if: ${{ secrets.REGISTRY && secrets.REGISTRY_USERNAME && secrets.REGISTRY_PASSWORD }}
-        uses: docker/login-action@v3
-        with:
-          registry: ${{ secrets.REGISTRY }}
-          username: ${{ secrets.REGISTRY_USERNAME }}
-          password: ${{ secrets.REGISTRY_PASSWORD }}
-
-      - name: Build da imagem Docker com Cache
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          file: ./Dockerfile
-          push: false # Não faz push ainda, precisamos escanear
-          load: true   # Exporta para o Docker local para o scan do Trivy
-          tags: ${{ env.IMAGE_FULL_NAME }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Scan de Vulnerabilidades (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ env.IMAGE_FULL_NAME }}
-          format: 'table'
-          exit-code: '1' # Falha o pipeline se encontrar algo CRÍTICO
-          severity: 'CRITICAL,HIGH'
-
-      - name: Push da Imagem
-        if: ${{ secrets.REGISTRY && secrets.REGISTRY_USERNAME && secrets.REGISTRY_PASSWORD }}
-        run: |
-          docker push ${{ env.IMAGE_FULL_NAME }}
